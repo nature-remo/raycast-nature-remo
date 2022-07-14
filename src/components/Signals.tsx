@@ -1,9 +1,10 @@
 import { Action, ActionPanel, Color, Icon, List, showToast } from "@raycast/api";
 import { Cloud, Appliance, Signal } from "nature-remo";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getIcon } from "../lib/icon";
 import { getPreferences } from "../lib/preferences";
 import { clearTimeout } from "timers";
+import { titleCase } from "../lib/utils";
 
 export function IR({ appliance }: { appliance: Appliance }) {
   return (
@@ -14,7 +15,10 @@ export function IR({ appliance }: { appliance: Appliance }) {
       actions={
         <ActionPanel>
           <ActionPanel.Section>
-            <Action.Push title="Show Details" target={<Signals signals={appliance.signals} />} />
+            <Action.Push
+              title="Show Details"
+              target={<Signals title={appliance.nickname} signals={appliance.signals} />}
+            />
           </ActionPanel.Section>
         </ActionPanel>
       }
@@ -22,10 +26,10 @@ export function IR({ appliance }: { appliance: Appliance }) {
   );
 }
 
-function Signals({ signals }: { signals: Signal[] }) {
+function Signals({ title, signals }: { title: string; signals: Signal[] }) {
   return (
-    <List>
-      <List.Section title="Results" subtitle={String(signals.length)}>
+    <List navigationTitle={title}>
+      <List.Section title="Commands" subtitle={String(signals.length)}>
         {signals.map((signal) => (
           <Item key={signal.id} signal={signal} />
         ))}
@@ -46,11 +50,13 @@ function Item({ signal }: { signal: Signal }) {
     setSignalSent(true);
     // clearTimeout signature from @types/node conflicts with the same one in lib.dom.d.ts from VS Code
     clearTimeout(timeoutRef.current as unknown as number);
-    timeoutRef.current = setTimeout(() => setSignalSent(false), 2000);
+    timeoutRef.current = setTimeout(() => setSignalSent(false), 3000);
     await showToast({ title: "Sent signal", message: signal.name });
 
     await client.sendSignal(signal.id);
   }
+
+  useEffect(() => () => clearTimeout(timeoutRef.current as unknown as number), []);
 
   return (
     <List.Item
@@ -63,16 +69,4 @@ function Item({ signal }: { signal: Signal }) {
       }
     />
   );
-}
-
-function capitalize(text: string): string {
-  if (!text) return text;
-
-  return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
-}
-
-function titleCase(text: string): string {
-  if (!text) return text;
-
-  return text.split(" ").map(capitalize).join(" ");
 }

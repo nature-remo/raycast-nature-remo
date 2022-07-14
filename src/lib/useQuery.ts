@@ -1,23 +1,14 @@
-import { environment, LocalStorage, showToast, Toast } from "@raycast/api";
-import fetch, { AbortError } from "node-fetch";
+import { showToast, Toast } from "@raycast/api";
+import { AbortError } from "node-fetch";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getPreferences } from "./preferences";
 
-type Fetcher<A, R> = (args: { signal: AbortSignal; args?: A }) => Promise<R>;
+export type Fetcher<R> = (signal: AbortSignal) => Promise<R>;
 
-interface CacheEntry<T> {
-  /** Date updated */
-  uat: number;
-
-  /** Actual data */
-  dat: T;
-}
-
-export function useQuery<A, R>(fetcher: Fetcher<A, R>, cache?: { cacheKey: string; cacheMs: number }) {
-  const [state, setState] = useState<{ results: R | null; isLoading: boolean }>({ results: null, isLoading: true });
+export function useQuery<R>(fetcher: Fetcher<R>, deps: React.DependencyList = []) {
+  const [state, setState] = useState<{ data: R | null; isLoading: boolean }>({ data: null, isLoading: true });
   const cancelRef = useRef<AbortController | null>(null);
   const perform = useCallback(
-    async function perform(args?: A) {
+    async function perform() {
       cancelRef.current?.abort();
       cancelRef.current = new AbortController();
 
@@ -27,31 +18,11 @@ export function useQuery<A, R>(fetcher: Fetcher<A, R>, cache?: { cacheKey: strin
       }));
 
       try {
-        const results: R = await (async (abort) => {
-          if (cache) {
-            const hit = await LocalStorage.getItem<string>(cache.cacheKey);
-
-            if (hit) {
-              const entry = JSON.parse(hit) as CacheEntry<R>;
-
-              if (Date.now() - entry.uat < cache.cacheMs) {
-                return entry.dat;
-              }
-            }
-          }
-
-          const result = await fetcher({ signal: abort.signal, args });
-
-          if (cache) {
-            await LocalStorage.setItem(cache.cacheKey, JSON.stringify({ uat: Date.now(), dat: result }));
-          }
-
-          return result;
-        })(cancelRef.current);
+        const data: R = await fetcher(cancelRef.current.signal);
 
         setState((oldState) => ({
           ...oldState,
-          results,
+          data,
           isLoading: false,
         }));
       } catch (error) {
@@ -69,7 +40,7 @@ export function useQuery<A, R>(fetcher: Fetcher<A, R>, cache?: { cacheKey: strin
         showToast({ style: Toast.Style.Failure, title: "API request failed", message: String(error) });
       }
     },
-    [cancelRef, setState]
+    [cancelRef, setState, fetcher]
   );
 
   useEffect(() => {
@@ -78,10 +49,12 @@ export function useQuery<A, R>(fetcher: Fetcher<A, R>, cache?: { cacheKey: strin
     return () => {
       cancelRef.current?.abort();
     };
-  }, []);
+  }, deps);
+
+  const { isLoading, data } = state;
 
   return {
-    state,
-    perform,
+    isLoading,
+    data,
   };
 }

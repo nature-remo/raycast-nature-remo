@@ -1,41 +1,101 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { Action, ActionPanel, Icon, List } from "@raycast/api";
 import { AirconModeType, Appliance, Cloud } from "nature-remo";
+import { useMemo } from "react";
 import { getPreferences } from "../lib/preferences";
+import { invalidate } from "../lib/useCache";
+import { capitalize } from "../lib/utils";
 
-export function AC({ appliance }: { appliance: Appliance }) {
-  const aircon = appliance.aircon!;
-  const settings = appliance.settings!;
+type UIModeType = AirconModeType | "off";
 
-  const currentTemp = settings.temp !== "" ? settings.temp + (settings.temp_unit === "c" ? "℃" : "°F") + " |" : "";
-  const currentMode = settings.mode;
+function useNatureRemo() {
+  const { apiKey } = getPreferences();
+  const client = useMemo<Cloud>(() => new Cloud(apiKey), [apiKey]);
 
-  const modes = Object.keys(aircon.range.modes) as AirconModeType[];
+  return client;
+}
 
-  async function setMode(mode: AirconModeType) {
-    const conf = aircon.range.modes[mode];
-    const { apiKey } = getPreferences();
-    const client = new Cloud(apiKey);
+export function AC({ appliance: { id, nickname, device, aircon, settings } }: { appliance: Appliance }) {
+  if (!(aircon && settings)) return <List.Item title="Invalid appliance" />;
 
-    console.log("set mode", conf);
-    const res = await client.updateAirconSettings(appliance.id, {
-      operation_mode: mode,
+  const client = useNatureRemo();
+  const isPoweredOff = useMemo(() => settings.button === "power-off", [settings.button]);
+  const modes = useMemo(() => [...Object.keys(aircon.range.modes), "off"] as UIModeType[], [aircon.range.modes]);
+  const modeSettings = useMemo(() => aircon.range.modes[settings.mode], [settings.mode]);
+  const tempUnit = useMemo(() => (settings.temp_unit === "c" ? "℃" : "°F"), [settings.temp_unit]);
+
+  const accessories = useMemo(
+    () =>
+      isPoweredOff
+        ? [{ text: "Powered Off" }]
+        : [
+            {
+              text: settings.vol,
+              icon: Icon.ArrowClockwise,
+            },
+            {
+              text: settings.temp + tempUnit,
+            },
+            { text: capitalize(settings.mode) },
+          ],
+    [isPoweredOff, tempUnit, settings.temp, settings.mode]
+  );
+
+  async function setMode(mode: UIModeType) {
+    await client.updateAirconSettings(
+      id,
+      mode === "off"
+        ? {
+            button: "power-off",
+          }
+        : {
+            operation_mode: mode,
+          }
+    );
+
+    await invalidate("appliances");
+  }
+
+  async function setTemp(temperature: string) {
+    await client.updateAirconSettings(id, {
+      temperature,
     });
 
-    console.log("res", res);
+    await invalidate("appliances");
+  }
+
+  async function setVol(airVolume: string) {
+    await client.updateAirconSettings(id, {
+      air_volume: airVolume,
+    });
+
+    await invalidate("appliances");
   }
 
   return (
     <List.Item
-      title={appliance.nickname}
-      subtitle={appliance.device.name}
-      accessoryTitle={currentTemp + " " + currentMode}
+      title={nickname}
+      subtitle={device.name}
+      accessories={accessories}
       icon={Icon.Globe}
       actions={
         <ActionPanel>
+          {!isPoweredOff && (
+            <>
+              <ActionPanel.Submenu title="Temperature">
+                {modeSettings.temp.map((temp) => (
+                  <Action key={temp} title={`${temp}${tempUnit}`} onAction={() => setTemp(temp)} />
+                ))}
+              </ActionPanel.Submenu>
+              <ActionPanel.Submenu title="Volume">
+                {modeSettings.vol.map((vol) => (
+                  <Action key={vol} title={vol} onAction={() => setVol(vol)} />
+                ))}
+              </ActionPanel.Submenu>
+            </>
+          )}
           <ActionPanel.Submenu title="Mode">
             {modes.map((mode) => (
-              <Action key={mode} title={mode} onAction={() => setMode(mode)} />
+              <Action key={mode} title={capitalize(mode)} onAction={() => setMode(mode)} />
             ))}
           </ActionPanel.Submenu>
         </ActionPanel>
