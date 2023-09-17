@@ -12,6 +12,8 @@ export function getIcon(icon: string): Image.ImageLike {
       return { source: Icon.Circle, tintColor: Color.Yellow };
     case "ico_color_blue":
       return { source: Icon.Circle, tintColor: Color.Blue };
+    case "ico_color_green":
+      return { source: Icon.Circle, tintColor: Color.Green };
     case "ico_mode_auto":
       return { source: Icon.ArrowClockwise };
     case "ico_io":
@@ -19,9 +21,9 @@ export function getIcon(icon: string): Image.ImageLike {
     case "ico_tv":
       return { source: Icon.Desktop };
     case "ico_minus":
-      return { source: Icon.SpeakerArrowDown };
+      return { source: Icon.SpeakerDown };
     case "ico_plus":
-      return { source: Icon.SpeakerArrowUp };
+      return { source: Icon.SpeakerUp };
     case "ico_display":
       return { source: Icon.Binoculars };
     default:
