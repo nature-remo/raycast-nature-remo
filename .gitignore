@@ -144,3 +144,7 @@ dist
 .svelte-kit
 
 # End of https://www.toptal.com/developers/gitignore/api/node
+
+# Raycast's auto-generated type definitions
+# https://developers.raycast.com/migration/v1.50.0
+raycast-env.d.ts
