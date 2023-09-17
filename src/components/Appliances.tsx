@@ -3,6 +3,8 @@ import { Appliance } from "nature-remo";
 import { useAppliances } from "../lib/api";
 import { AC } from "./Aircon";
 import { IR } from "./Signals";
+import { LIGHT } from "./Light";
+import { TV } from "./Tv";
 
 export function Appliances() {
   const { isLoading, appliances } = useAppliances();
@@ -24,6 +26,10 @@ function Item({ appliance }: { appliance: Appliance }) {
       return <AC appliance={appliance} />;
     case "IR":
       return <IR appliance={appliance} />;
+    case "LIGHT":
+      return <LIGHT appliance={appliance} />;
+    case "TV":
+      return <TV appliance={appliance} />;
     default:
       console.log(`Unrecognized appliance type: ${appliance.type}`);
 
